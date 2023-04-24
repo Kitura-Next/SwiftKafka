@@ -112,14 +112,17 @@ public class KafkaProducer: KafkaClient {
         }
         // Allocate a byte of memory to act as an identifer for the message callback
         let idPointer = UnsafeMutableRawPointer.allocate(byteCount: 1, alignment: 0)
-        let responseCode = rd_kafka_produce(topicPointer,
-                                            producerRecord.partition,
-                                            RD_KAFKA_MSG_F_COPY,
-                                            UnsafeMutablePointer<UInt8>(mutating: [UInt8](producerRecord.value)),
-                                            producerRecord.value.count,
-                                            keyBytes,
-                                            keyBytesCount,
-                                            idPointer)
+        var producerRecordValue = producerRecord.value
+        let responseCode = producerRecordValue.withUnsafeMutableBytes { pointer in
+            rd_kafka_produce(topicPointer,
+                             producerRecord.partition,
+                             RD_KAFKA_MSG_F_COPY,
+                             pointer.baseAddress,
+                             producerRecord.value.count,
+                             keyBytes,
+                             keyBytesCount,
+                             idPointer)
+        }
         if responseCode != 0 {
             if let callback = messageCallback {
                 callback(.failure(KafkaError(rawValue: Int(responseCode))))
